@@ -3,80 +3,189 @@
 import math
 
 from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
-                                 InfraredSensor, UltrasonicSensor, GyroSensor)
+from pybricks.ev3devices import (
+    Motor,
+    TouchSensor,
+    ColorSensor,
+    InfraredSensor,
+    UltrasonicSensor,
+    GyroSensor,
+)
 from pybricks.parameters import Port, Stop, Direction, Button, Color
 from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
+from pybricks.tools import wait
+import _thread
 
-# This program requires LEGO EV3 MicroPython v2.0 or higher.
-# Click "Open user guide" on the EV3 extension tab for more information.
+brick = EV3Brick()
+calibrating = False
 
+arm1 = Motor(Port.C)
+arm2 = Motor(Port.D)
 
-# Create your objects here.
-ev3 = EV3Brick()
+class EWMA:
+    def __init__(self, start, alpha):
+        self._avg = start
+        self._alpha = alpha
 
-motor = Motor(port=Port.A)
-
-gyro = GyroSensor(Port.S1)
-
-# The motor is going to pretend to be a wheel spinning freely.
-# We want to reduce the speed of the motor by 10% in the first second after
-# we stop receiving input. From that, we can calculate the drag factor.
-#
-# Drag equation is
-#
-# D = coefficient * v^2
-#
-# I think technically this requires integrals to solve? something like
-#
-# 300^2 - 270^2 = integral(v=[270,300], coefficient * v^2), solve for
-# coefficient
-#
-# 17100 = integral(v=[270,300], v^2) * coefficient
-#         [v=[270,300]] v^3/3 * coefficient
-# 17100 = 2439000 * coefficient
-# coefficient = 17100 / 2439000
-# coefficient = 0.07
-
-drag_coefficient = 0.004
+    def point(self, data):
+        self._avg = self._avg * (1.0-self._alpha) + self._alpha * data
+        return self._avg
 
 
-stopwatch = StopWatch()
-stopwatch.resume()
-speed = 0.0
-time_step = 10
-second_frac = time_step / 1000.
-while True:
-  stopwatch.reset()
-  if speed < 1:
-    speed = 0
+def low_torque_run_until_stalled(motor: Motor, speed: int, torque: int = 40):
+    motor.stop()
+    before_limits = motor.control.limits()
+    motor.control.limits(None, None, torque)
 
-  if speed > 0:
-    # Apply drag:
-    v2 = speed ** 2
-    drag = v2 * drag_coefficient
-    new_energy = v2 - drag
-    new_speed = math.sqrt(new_energy)
-    speed = new_speed
+    # Begin rotating the motor until an exponentially-weighted moving average shows its speed has fallen below half the desired rate.
+    time_for_five_degrees = 5 * (1000 / abs(speed))
 
-  gyro_speed = gyro.speed() or 0
-  if (gyro_speed > 0):
-    speed += gyro_speed * second_frac
-    print(speed)
+    ewma = EWMA(5, 0.2)
+    angle_before = motor.angle()
+    motor.run(speed)
+    while True:
+        wait(time_for_five_degrees)
+        angle_after = motor.angle()
+        avg = ewma.point(abs(angle_after - angle_before))
+        if avg < 1:
+            break
+        angle_before = angle_after
+    motor.stop()
+    motor.control.limits(*before_limits)
 
-  if speed > 600:
-    print('Capping speed at 300')
-    speed = min(300, speed)
 
-  motor.run(speed)
+def calibrate_throw(motor: Motor, speed: int):
+    low_torque_run_until_stalled(motor, speed)
+    high = motor.angle()
+    print(high)
+    low_torque_run_until_stalled(motor, -speed)
+    low = motor.angle()
+    print(low)
+    target = (high + low) / 2
+    print(target)
+    motor.run_target(speed * 3, target)
+    return (low, high)
 
-  # Wait until the end of a 10ms interval.
-  wait(max(0, time_step - stopwatch.time()))
+# Arm 2 has a 8:1 reduction. A speed of 50 seems precise enough.
+print(calibrate_throw(arm2, 50))
+# Arm 1 has a 36:20 reduction. This is about a 2:1 ratio and thus we'll reduce the speed by a factor of 4.
+print(calibrate_throw(arm1, 12.5))
 
 
 
 
+brick.speaker.beep()
 
 
+
+if False:
+
+    arm1_throw = -1
+    arm2_throw = -1
+    brick.speaker.set_volume(10)
+
+
+    def calibrate_task():
+        num_left_button_presses = 0
+        while True:
+            if False:
+                while num_left_button_presses < 10:
+                    if Button.LEFT in brick.buttons.pressed():
+                        num_left_button_presses += 1
+                    else:
+                        num_left_button_presses = 0
+                    await wait(100)
+            calibrate()
+            break
+
+
+    def calibrate():
+        global calibrating
+        calibrating = True
+
+        brick.speaker.beep()
+
+        # Wait for the user to pick up their finger.
+        while Button.LEFT in brick.buttons.pressed():
+            wait(50)
+
+        arm1.stop()
+        arm2.stop()
+
+        a1low, a1high, a2low, a2high = arm1.angle(), arm1.angle(), arm2.angle(), arm2.angle()
+
+        arm1.run(1)
+
+        # Begin watching the arms. Record their upper and lower extremes. If the left button gets pressed again we exit.
+        while not Button.LEFT in brick.buttons.pressed():
+            a1 = arm1.angle()
+            a2 = arm2.angle()
+            if a1 < a1low: a1low = a1
+            if a1 > a1high: a1high = a1
+            if a2 < a2low: a2low = a2
+            if a2 > a2high: a2high = a2
+
+            print(a1low, a1high, a2low, a2high)
+
+            await wait(200)
+
+        # Okay, we know the extremes of each motor. Let's re-home the angle of each motor so zero is the lower extreme.
+        global arm1_throw, arm2_throw
+        arm1_throw = reset_angle_from_extremes(arm1, a1low, a1high)
+        arm2_throw = reset_angle_from_extremes(arm2, a2low, a2high)
+
+        # Finally, set the arms to a known good neutral position. (Known by me, the programmer lol)
+        brick.speaker.beep()
+
+        print(arm1.angle(), arm1_throw)
+        print(arm2.angle(), arm2_throw)
+
+        arm1_target = 90
+        arm2_target = 120
+        # await my_run_target(arm1, 1, arm1_target)
+        # print('finished arm1 target')
+        await my_run_target(arm2, 1, arm2_target)
+        print('finished arm2 target')
+        brick.speaker.beep()
+
+
+
+    def reset_angle_from_extremes(motor: Motor, low: int, high: int):
+        motor.reset_angle(motor.angle() - low)
+        return high - low
+
+
+
+
+
+
+
+    # run_task(calibrate_task())
+
+    if False:
+        async def my_run_target(motor: Motor, speed: int, target: int):
+            brick.speaker.beep()
+            diff = target - motor.angle()
+            mspeed = speed if diff > 0 else -speed
+
+            print(mspeed, diff)
+            motor.run(mspeed)
+
+            while abs(motor.angle() - target) > 2:
+                await wait(100)
+
+
+        async def test_run_target(motor: Motor):
+            await my_run_target(motor, 1, 35)
+
+        run_task(test_run_target(arm2))
+
+    arm1.stop()
+    arm2.stop()
+    arm2.control.limits(None, None, 10)
+    arm2.run_until_stalled(75)
+    while not arm2.stalled():
+        wait(25)
+    brick.speaker.beep()
