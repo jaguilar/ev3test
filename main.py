@@ -176,7 +176,8 @@ def update_positions():
 
 def send_ranges():
     range_mailbox = Mailbox(net_formats.range_channel, server)
-
+    range_mailbox.read()  # Client will tell us when they are ready for a message.
+    print('got ready message from client')
     buffer = ustruct.pack(
         net_formats.range_format,
         turntable_range[0],
@@ -187,6 +188,7 @@ def send_ranges():
         arm2_range[1],
     )
     range_mailbox.send(buffer)
+    print('sent ranges')
 
 
 def receive_position_commands():
