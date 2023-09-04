@@ -15,9 +15,9 @@ turntable_throw = ranges[1] - ranges[0]
 arm1_throw = ranges[3] - ranges[2]
 arm2_throw = ranges[5] - ranges[4]
 
-client.set_target(2000, ranges[0] + turntable_throw * .75, ranges[2] + arm1_throw * .75, ranges[4] + arm2_throw * .75)
+client.set_target(2000, int(ranges[0] + turntable_throw * .75), int(ranges[2] + arm1_throw * .75), int(ranges[4] + arm2_throw * .75))
 time.sleep(5)
-client.set_target(2000, ranges[0] + turntable_throw * .25, ranges[2] + arm1_throw * .25, ranges[4] + arm2_throw * .25)
+client.set_target(2000, int(ranges[0] + turntable_throw * .25), int(ranges[2] + arm1_throw * .25), int(ranges[4] + arm2_throw * .25))
 time.sleep(5)
-client.set_target(2000, ranges[0] + turntable_throw * .5, ranges[2] + arm1_throw * .5, ranges[4] + arm2_throw * .5)
+client.set_target(2000, int(ranges[0] + turntable_throw * .5), int(ranges[2] + arm1_throw * .5), int(ranges[4] + arm2_throw * .5))
 time.sleep(5)
