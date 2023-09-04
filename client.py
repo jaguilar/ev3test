@@ -6,15 +6,15 @@ import struct
 # This is the address of the server EV3 we are connecting to.
 SERVER = "f0:45:da:13:1c:8a"
 
-client = BluetoothMailboxClient()
+_mailbox_client = BluetoothMailboxClient()
 
 print("establishing connection...")
-client.connect(SERVER)
+_mailbox_client.connect(SERVER)
 print("connected!")
 
 
-_current_position_mbox = Mailbox('current_position', client)
-_target_position_mbox = Mailbox('target_position', client)
+_current_position_mbox = Mailbox('current_position', _mailbox_client)
+_target_position_mbox = Mailbox('target_position', _mailbox_client)
 _ranges_mbox = Mailbox('range')
 
 
