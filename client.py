@@ -19,10 +19,12 @@ _ranges_mbox = Mailbox(net_formats.range_channel, _mailbox_client)
 
 
 def ranges():
+    _ranges_mbox.wait()
     return struct.unpack_from(net_formats.range_format, _ranges_mbox.read())
 
 
 def current_position():
+    _current_position_mbox.wait()
     return struct.unpack_from(_current_position_mbox, _current_position_mbox.read())
 
 
