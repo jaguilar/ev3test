@@ -152,9 +152,6 @@ send_arm1(50, 500)
 print("arm1_sent")
 send_arm2(10, 500)
 print("arm2_sent")
-
-wait(5000)
-
 print(turntable.angle(), arm1.angle(), arm2.angle())
 
 
