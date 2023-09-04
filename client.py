@@ -13,19 +13,19 @@ client.connect(SERVER)
 print("connected!")
 
 
-current_position_mbox = Mailbox('current_position', client)
-target_position_mbox = Mailbox('target_position', client)
-ranges_mbox = Mailbox('range')
+_current_position_mbox = Mailbox('current_position', client)
+_target_position_mbox = Mailbox('target_position', client)
+_ranges_mbox = Mailbox('range')
 
 
 def ranges():
-    return struct.unpack_from(net_formats.range_format, ranges_mbox.read())
+    return struct.unpack_from(net_formats.range_format, _ranges_mbox.read())
 
 
 def current_position():
-    return struct.unpack_from(current_position_mbox, current_position_mbox.read())
+    return struct.unpack_from(_current_position_mbox, _current_position_mbox.read())
 
 
 def set_target(ms_from_now: int, turntable_angle: int, arm1_angle: int, arm2_angle: int):
     print('sending ', ms_from_now, turntable_angle, arm1_angle, arm2_angle)
-    target_position_mbox.send(struct.pack(net_formats.target_format, ms_from_now, turntable_angle, arm1_angle, arm2_angle))
+    _target_position_mbox.send(struct.pack(net_formats.target_format, ms_from_now, turntable_angle, arm1_angle, arm2_angle))
