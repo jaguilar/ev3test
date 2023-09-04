@@ -21,6 +21,7 @@ from micropython import const
 import ustruct
 from typing import *
 import _thread
+import net_formats
 
 brick = EV3Brick()
 calibrating = False
@@ -168,14 +169,13 @@ def update_positions():
     position_mailbox = Mailbox("current_position", server)
 
     _UPDATE_FREQ_MS = const(33)
-    _FORMAT = "!hhh"
 
-    buffer = ustruct.pack(_FORMAT, turntable.angle(), arm1.angle(), arm2.angle())
+    buffer = ustruct.pack(net_formats.current_format, turntable.angle(), arm1.angle(), arm2.angle())
 
     while True:
         position_mailbox.send(buffer)
         wait(_UPDATE_FREQ_MS)
-        ustruct.pack_into(_FORMAT, buffer, 0, turntable.angle(), arm1.angle(), arm2.angle())
+        ustruct.pack_into(net_formats.current_format, buffer, 0, turntable.angle(), arm1.angle(), arm2.angle())
 
 
 
@@ -183,7 +183,7 @@ def send_ranges():
     range_mailbox = Mailbox("calibrated_ranges", server)
 
     buffer = ustruct.pack(
-        "!hhhhhh",
+        net_formats.range_format,
         turntable_range[0],
         turntable_range[1],
         arm1_range[0],
@@ -206,7 +206,7 @@ def receive_position_commands():
             turntable_target,
             arm1_target,
             arm2_target,
-        ) = ustruct.unpack_from(_FORMAT, mailbox.read())
+        ) = ustruct.unpack_from(net_formats.target_format, mailbox.read())
         print('Got new target: in ', time_to_target, 'ms: ', turntable_target, arm1_target, arm2_target)
 
         send_turntable(turntable_target, time_to_target)
