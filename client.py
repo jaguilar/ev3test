@@ -13,9 +13,9 @@ _mailbox_client.connect(SERVER)
 print("connected!")
 
 
-_current_position_mbox = Mailbox('current_position', _mailbox_client)
-_target_position_mbox = Mailbox('target_position', _mailbox_client)
-_ranges_mbox = Mailbox('range')
+_current_position_mbox = Mailbox(net_formats.current_channel, _mailbox_client)
+_target_position_mbox = Mailbox(net_formats.target_channel, _mailbox_client)
+_ranges_mbox = Mailbox(net_formats.range_channel, _mailbox_client)
 
 
 def ranges():

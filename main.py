@@ -71,17 +71,17 @@ arm2_min_speed = int(100 / ((36.0 / 8.0) * (36 / 12)))
 
 def calibrate_arm1_raise():
     arm1.run_until_stalled(-3 * arm1_min_speed, then=Stop.COAST, duty_limit=20)
-    arm1.reset_angle(73)
-    arm1_range[0] = 0
-    arm1_range[1] = 73
+    arm1.reset_angle(17)
+    arm1_range[0] = 17
+    arm1_range[1] = 90
 
 
 def calibrate_arm2():
     # Runs while arm1 is pointing up, so it should be safe to test our whole limit.
-    arm2.run_until_stalled(-3 * arm2_min_speed, duty_limit=30)
+    arm2.run_until_stalled(-4 * arm2_min_speed, duty_limit=35)
     arm2.reset_angle(-6)
     arm2_range[0] = -6
-    arm2.run_until_stalled(3 * arm2_min_speed, duty_limit=30)
+    arm2.run_until_stalled(4 * arm2_min_speed, duty_limit=35)
     arm2_range[1] = arm2.angle()
 
 
@@ -166,21 +166,19 @@ print('connected')
 
 def update_positions():
     """Thread for periodically updating the current_position mailbox."""
-    position_mailbox = Mailbox("current_position", server)
+    position_mailbox = Mailbox(net_formats.current_channel, server)
 
     _UPDATE_FREQ_MS = const(33)
 
-    buffer = ustruct.pack(net_formats.current_format, turntable.angle(), arm1.angle(), arm2.angle())
-
     while True:
-        position_mailbox.send(buffer)
+        position_mailbox.send(ustruct.pack(net_formats.current_format, turntable.angle(), arm1.angle(), arm2.angle()))
         wait(_UPDATE_FREQ_MS)
-        ustruct.pack_into(net_formats.current_format, buffer, 0, turntable.angle(), arm1.angle(), arm2.angle())
+
 
 
 
 def send_ranges():
-    range_mailbox = Mailbox("calibrated_ranges", server)
+    range_mailbox = Mailbox(net_formats.range_channel, server)
 
     buffer = ustruct.pack(
         net_formats.range_format,
@@ -195,7 +193,7 @@ def send_ranges():
 
 
 def receive_position_commands():
-    mailbox = Mailbox("target_position", server)
+    mailbox = Mailbox(net_formats.target_channel, server)
 
     _FORMAT = "!hhhh"  # time_to_target, turntable, arm1, arm2
 
@@ -214,8 +212,8 @@ def receive_position_commands():
         send_arm2(arm2_target, time_to_target)
 
 
-_thread.start_new_thread(receive_position_commands)
-_thread.start_new_thread(update_positions)
+_thread.start_new_thread(receive_position_commands, tuple())
+_thread.start_new_thread(update_positions, tuple())
 
 send_ranges()
 
