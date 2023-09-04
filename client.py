@@ -2,6 +2,12 @@
 from pybrickspc.messaging import BluetoothMailboxClient, Mailbox
 import net_formats
 import struct
+import sys
+
+
+if __name__ == '__main__':
+    print('I think you meant to run client_test.py or something else.')
+    sys.exit(1)
 
 # This is the address of the server EV3 we are connecting to.
 SERVER = "f0:45:da:13:1c:8a"
@@ -19,12 +25,16 @@ _ranges_mbox = Mailbox(net_formats.range_channel, _mailbox_client)
 
 
 def ranges():
+    print('waiting for ranges')
     _ranges_mbox.wait()
+    print('got ranges')
     return struct.unpack_from(net_formats.range_format, _ranges_mbox.read())
 
 
 def current_position():
+    print('waiting for position')
     _current_position_mbox.wait()
+    print('got position')
     return struct.unpack_from(_current_position_mbox, _current_position_mbox.read())
 
 
