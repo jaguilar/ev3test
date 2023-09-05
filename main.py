@@ -70,19 +70,30 @@ arm2_min_speed = int(100 / ((36.0 / 8.0) * (36 / 12)))
 
 
 def calibrate_arm1_raise():
-    arm1.run_until_stalled(-3 * arm1_min_speed, then=Stop.COAST, duty_limit=20)
-    arm1.reset_angle(17)
+    lower_stall = arm1.run_until_stalled(-3 * arm1_min_speed, then=Stop.COAST, duty_limit=15)
+
+    # We want for whatever angle we were at when we stalled to be 17 degrees (the measured
+    # limit of the arm.)
+    arm1.reset_angle(17 + lower_stall - arm1.angle())
     arm1_range[0] = 17
     arm1_range[1] = 90
+    arm1.run_target(10, 27, wait=False)
 
 
 def calibrate_arm2():
     # Runs while arm1 is pointing up, so it should be safe to test our whole limit.
-    arm2.run_until_stalled(-4 * arm2_min_speed, duty_limit=35)
-    arm2.reset_angle(-6)
+    lower_stall = arm2.run_until_stalled(-4 * arm2_min_speed, duty_limit=30)
+
+    # We want the lower_stall angle to be -6 after the reset. This means that
+    # we need to reset the current angle to be -6 - lower_stall + current_angle
+    # For example, if we stalled at -27 and we are now at -36, then the reset angle
+    # should be -36 - (-27) - 6 = -15
+    arm2.reset_angle(arm2.angle() - lower_stall - 6)
+
+    arm2.run_target(10, 0)
     arm2_range[0] = -6
-    arm2.run_until_stalled(4 * arm2_min_speed, duty_limit=35)
-    arm2_range[1] = arm2.angle()
+    arm2_range[1] = arm2.run_until_stalled(4 * arm2_min_speed, duty_limit=30)
+    arm2.run_target(10, 0, wait=False)
 
 
 def calibrate_turntable():
@@ -136,9 +147,7 @@ def send_arm2(target: int, time_ms: int):
 
 
 calibrate_arm1_raise()
-send_arm1(arm1_range[0] + 10, 2000)
 calibrate_arm2()
-send_arm2(arm2_range[0] + 20, 2000)
 calibrate_turntable()
 send_turntable(0, 2000)
 
