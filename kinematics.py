@@ -59,7 +59,6 @@ def get_pos(input: Vec3) -> Vec3:
     y = _l2 * cos(a2) + _l3 * cos(a2 + a3)
     z = r * sin(ar)
     ret = np.array((x, y, z))
-    print(input, ret)
     return ret
 
 
@@ -68,6 +67,7 @@ def get_err(input:Vec3, target: Vec3) -> np.floating:
 
 
 def get_motor_settings(target: Vec3):
+    # I tried to differentiate this and I got a headache. Finite estimation methods ftw.
     return minimize(get_err, (0, 0, 0), args=(target,), method="slsqp", jac="3-point", bounds=((radians(-90), radians(90)), (radians(17), radians(90)), (radians(-6), radians(161))))
 
 
