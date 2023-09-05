@@ -25,6 +25,7 @@ _ranges_mbox = Mailbox(net_formats.range_channel, _mailbox_client)
 
 
 def ranges():
+    _ranges_mbox.send(struct.pack('!h', 1))
     print('waiting for ranges')
     _ranges_mbox.wait()
     print('got ranges')
