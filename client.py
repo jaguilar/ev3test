@@ -36,7 +36,7 @@ def current_position():
     print('waiting for position')
     _current_position_mbox.wait()
     print('got position')
-    return struct.unpack_from(_current_position_mbox, _current_position_mbox.read())
+    return struct.unpack_from(net_formats.current_format, _current_position_mbox.read())
 
 
 def set_target(ms_from_now: int, turntable_angle: int, arm1_angle: int, arm2_angle: int):
