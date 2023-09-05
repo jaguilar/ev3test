@@ -26,17 +26,13 @@ _ranges_mbox = Mailbox(net_formats.range_channel, _mailbox_client)
 
 def ranges():
     _ranges_mbox.send(struct.pack('!h', 1))
-    print('waiting for ranges')
     _ranges_mbox.wait()
-    print('got ranges')
     return struct.unpack_from(net_formats.range_format, _ranges_mbox.read())
 
 
 def current_position():
-    print('waiting for position')
     _current_position_mbox.wait()
-    print('got position')
-    return struct.unpack_from(_current_position_mbox, _current_position_mbox.read())
+    return struct.unpack_from(net_formats.current_format, _current_position_mbox.read())
 
 
 def set_target(ms_from_now: int, turntable_angle: int, arm1_angle: int, arm2_angle: int):
