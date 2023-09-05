@@ -3,11 +3,11 @@
 import client
 import kinematics
 import numpy as np
-from numpy import linalg
+from numpy.linalg import norm
+from math import degrees, radians
 import pygame
 
 
-pygame.init()
 
 
 def input_gain(x: float):
@@ -20,7 +20,7 @@ def input_gain(x: float):
 # button 0: save pos
 # button 2: replay positions
 # button 3: clear positions
-_MAX_MOVEMENT = 3
+_MAX_MOVEMENT = 1
 
 
 def get_x(j: pygame.joystick.JoystickType):
@@ -51,7 +51,6 @@ _arm1_true_throw = 73
 _arm1_scale = (_RANGES[3] - _RANGES[2]) / _arm1_true_throw
 _arm2_true_throw = 167
 _arm2_scale = (_RANGES[5] - _RANGES[4]) / _arm2_true_throw
-_scale_array = np.ndarray((_turntable_scale, _arm1_scale, _arm2_scale))
 
 
 def turntable_raw_to_logical(angle: float):
@@ -96,9 +95,13 @@ def get_current_angles():
 
 
 def set_target_angles(v: np.ndarray, in_ms: int = 500):
-    (r1, r2, r3) = v
-    client.set_target(in_ms, turntable_logical_to_raw(r1), arm1_logical_to_raw(r2), arm2_logical_to_raw(r3))
+    r1, r2, r3 = v[0], v[1], v[2]
+    client.set_target(in_ms, int(turntable_logical_to_raw(r1)), int(arm1_logical_to_raw(r2)), int(arm2_logical_to_raw(r3)))
 
+
+print('pygame init')
+pygame.init()
+print('pygame init done')
 
 def main():
     # Used to manage how fast the screen updates.
@@ -109,6 +112,7 @@ def main():
         if pygame.joystick.get_count() == 0:
             # Don't do anything unless there is a joystick
             clock.tick(1)
+            print('no joy')
             continue
 
         joysticks = [
@@ -123,17 +127,22 @@ def main():
             print(button_list)
 
         dir = get_arm_direction(joysticks[0])
-        if prev_dir is not None and (
-            linalg.norm(dir - prev_dir) > 0.1 or linalg.norm(dir) > 0
-        ):
+        if prev_dir is None or norm(dir - prev_dir) > 0.01 or norm(dir) > 0.01:
+            print(prev_dir is None, norm(dir - prev_dir) > 0.01 if prev_dir is not None else False, norm(dir) > 0.01)
             # Try to apply this direction to the current position and set the target to that.
             angles = get_current_angles()
-            pos = kinematics.get_pos(angles)
-            print(pos, pos + dir)
+            pos = kinematics.get_pos(np.vectorize(radians)(angles))
+            new_pos = pos + dir
+            solution = kinematics.get_motor_settings(new_pos)
+            print(pos, new_pos)
+            new_angles = np.vectorize(degrees)(solution.x)
+            print(angles, new_angles)
+            set_target_angles(new_angles)
+            prev_dir = dir
 
 
         # Limit to 30 frames per second.
-        clock.tick(15)
+        clock.tick(60)
 
 
 if __name__ == "__main__":
