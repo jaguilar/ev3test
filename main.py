@@ -154,68 +154,86 @@ send_arm2(10, 500)
 print("arm2_sent")
 print(turntable.angle(), arm1.angle(), arm2.angle())
 
+def serve():
 
-server = BluetoothMailboxServer()
-print('waiting for connection')
-server.wait_for_connection(1)
-print('connected')
+    server = BluetoothMailboxServer()
+    print('waiting for connection')
+    server.wait_for_connection(1)
+    print('connected')
 
+    stop = False
+    running = 2
+    def update_positions():
+        """Thread for periodically updating the current_position mailbox."""
+        nonlocal running
+        try:
+            position_mailbox = Mailbox(net_formats.current_channel, server)
 
-def update_positions():
-    """Thread for periodically updating the current_position mailbox."""
-    position_mailbox = Mailbox(net_formats.current_channel, server)
+            _UPDATE_FREQ_MS = const(33)
 
-    _UPDATE_FREQ_MS = const(33)
-
-    while True:
-        position_mailbox.send(ustruct.pack(net_formats.current_format, turntable.angle(), arm1.angle(), arm2.angle()))
-        wait(_UPDATE_FREQ_MS)
-
-
-
-
-def send_ranges():
-    range_mailbox = Mailbox(net_formats.range_channel, server)
-    range_mailbox.wait()  # Client will tell us when they are ready for a message.
-    print('got ready message from client')
-    buffer = ustruct.pack(
-        net_formats.range_format,
-        turntable_range[0],
-        turntable_range[1],
-        arm1_range[0],
-        arm1_range[1],
-        arm2_range[0],
-        arm2_range[1],
-    )
-    range_mailbox.send(buffer)
-    print('sent ranges')
+            while not stop:
+                position_mailbox.send(ustruct.pack(net_formats.current_format, turntable.angle(), arm1.angle(), arm2.angle()))
+                wait(_UPDATE_FREQ_MS)
+        except OSError as err:
+            print(err)
+        finally:
+            running -= 1
 
 
-def receive_position_commands():
-    mailbox = Mailbox(net_formats.target_channel, server)
-
-    _FORMAT = "!hhhh"  # time_to_target, turntable, arm1, arm2
-
-    while True:
-        mailbox.wait_new()
-        (
-            time_to_target,
-            turntable_target,
-            arm1_target,
-            arm2_target,
-        ) = ustruct.unpack_from(net_formats.target_format, mailbox.read())
-        print('Got new target: in ', time_to_target, 'ms: ', turntable_target, arm1_target, arm2_target)
-
-        send_turntable(turntable_target, time_to_target)
-        send_arm1(arm1_target, time_to_target)
-        send_arm2(arm2_target, time_to_target)
+    def send_ranges():
+        range_mailbox = Mailbox(net_formats.range_channel, server)
+        range_mailbox.wait()  # Client will tell us when they are ready for a message.
+        print('got ready message from client')
+        buffer = ustruct.pack(
+            net_formats.range_format,
+            turntable_range[0],
+            turntable_range[1],
+            arm1_range[0],
+            arm1_range[1],
+            arm2_range[0],
+            arm2_range[1],
+        )
+        range_mailbox.send(buffer)
+        print('sent ranges')
 
 
-_thread.start_new_thread(receive_position_commands, tuple())
-_thread.start_new_thread(update_positions, tuple())
+    def receive_position_commands():
+        nonlocal running
+        try:
+            mailbox = Mailbox(net_formats.target_channel, server)
 
-send_ranges()
+            _FORMAT = "!hhhh"  # time_to_target, turntable, arm1, arm2
+
+            while True:
+                mailbox.wait_new()
+                (
+                    time_to_target,
+                    turntable_target,
+                    arm1_target,
+                    arm2_target,
+                ) = ustruct.unpack_from(net_formats.target_format, mailbox.read())
+                print('Got new target: in ', time_to_target, 'ms: ', turntable_target, arm1_target, arm2_target)
+
+                send_turntable(turntable_target, time_to_target)
+                send_arm1(arm1_target, time_to_target)
+                send_arm2(arm2_target, time_to_target)
+        finally:
+            running -= 1
+
+
+    _thread.start_new_thread(receive_position_commands, tuple())
+    _thread.start_new_thread(update_positions, tuple())
+
+    send_ranges()
+    while running > 0:
+        wait(1000)
 
 print('main thread sleeping forever')
 while True:
-    wait(5000)
+    try:
+        serve()
+    except Exception as e:
+        print(e)
+    finally:
+        print('server loop exitted, restarting')
+        wait(5000)
