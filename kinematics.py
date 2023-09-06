@@ -33,17 +33,17 @@
 from math import sin, cos, radians
 import numpy as np
 from numpy.linalg import norm
-from numpy.typing import NDArray
-from typing import Annotated, Literal, TypeVar
+import numpy.typing as npt
+from typing import Annotated, Literal, TypeVar, Any
 from scipy.optimize import minimize
 
 _r1 = 2.0
 _l2 = 20.0
 _l3 = 15.0
 
-Vec3 = Annotated[NDArray[np.generic], Literal[3]]
+Vec3 = npt.NDArray[np.number[Any]]
 
-def get_radius(input: Vec3) -> np.floating:
+def get_radius(input: Vec3) -> float:
     return _r1 + _l2 * sin(input[1]) + _l3 * sin(input[1] + input[2])
 
 
@@ -66,9 +66,10 @@ def get_err(input:Vec3, target: Vec3) -> np.floating:
     return norm(target - get_pos(input))
 
 
-def get_motor_settings(target: Vec3):
+def get_motor_settings(target: Vec3, initial_guess: npt.ArrayLike):
     # I tried to differentiate this and I got a headache. Finite estimation methods ftw.
-    return minimize(get_err, (0, 0, 0), args=(target,), method="slsqp", jac="3-point", bounds=((radians(-90), radians(90)), (radians(17), radians(90)), (radians(-6), radians(161))))
+    initial_guess = initial_guess if initial_guess is not None else (0, 0, 0)
+    return minimize(get_err, initial_guess, args=(target,), method="slsqp", jac="3-point", bounds=((radians(-90), radians(90)), (radians(17), radians(90)), (radians(-6), radians(161))))
 
 
 
