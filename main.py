@@ -70,7 +70,7 @@ arm2_min_speed = int(100 / ((36.0 / 8.0) * (36 / 12)))
 
 
 def calibrate_arm1_raise():
-    lower_stall = arm1.run_until_stalled(-3 * arm1_min_speed, then=Stop.COAST, duty_limit=15)
+    lower_stall = arm1.run_until_stalled(-5 * arm1_min_speed, then=Stop.COAST, duty_limit=15)
 
     # We want for whatever angle we were at when we stalled to be 17 degrees (the measured
     # limit of the arm.)
@@ -82,7 +82,7 @@ def calibrate_arm1_raise():
 
 def calibrate_arm2():
     # Runs while arm1 is pointing up, so it should be safe to test our whole limit.
-    lower_stall = arm2.run_until_stalled(-4 * arm2_min_speed, duty_limit=30)
+    lower_stall = arm2.run_until_stalled(-6 * arm2_min_speed, duty_limit=30)
 
     # We want the lower_stall angle to be -6 after the reset. This means that
     # we need to reset the current angle to be -6 - lower_stall + current_angle
@@ -92,7 +92,7 @@ def calibrate_arm2():
 
     arm2.run_target(10, 0)
     arm2_range[0] = -6
-    arm2_range[1] = arm2.run_until_stalled(4 * arm2_min_speed, duty_limit=30)
+    arm2_range[1] = arm2.run_until_stalled(6 * arm2_min_speed, duty_limit=30)
     arm2.run_target(10, 0, wait=False)
 
 
@@ -131,19 +131,22 @@ def send_motor(
     actual_target = max(range[0], min(range[1], target))
     ideal_speed = 1000 * float(abs(actual_target - m.angle())) / time_ms
     actual_speed = max(ideal_speed, min_speed)
+    if m.angle() - actual_target == 0 or actual_speed < 0.05:
+        return
+    print(actual_speed, m.angle(), actual_target)
     m.run_target(actual_speed, actual_target, wait=False)
 
 
 def send_turntable(target: int, time_ms: int):
-    send_motor(turntable, turntable_min_speed, turntable_range, target, time_ms)
+    send_motor(turntable, 0, turntable_range, target, time_ms)
 
 
 def send_arm1(target: int, time_ms: int):
-    send_motor(arm1, arm1_min_speed, arm1_range, target, time_ms)
+    send_motor(arm1, 0, arm1_range, target, time_ms)
 
 
 def send_arm2(target: int, time_ms: int):
-    send_motor(arm2, arm2_min_speed, arm2_range, target, time_ms)
+    send_motor(arm2, 0, arm2_range, target, time_ms)
 
 
 calibrate_arm1_raise()
